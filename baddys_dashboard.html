@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baddy's Dashboard - Suspicious Hosts Monitor</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .threat-critical { background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); }
+        .threat-high { background: linear-gradient(135deg, #f97316 0%, #ea580c 100%); }
+        .threat-medium { background: linear-gradient(135deg, #eab308 0%, #ca8a04 100%); }
+        .threat-low { background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%); }
+        .glow-red { box-shadow: 0 0 20px rgba(239, 68, 68, 0.4); }
+        .glow-orange { box-shadow: 0 0 20px rgba(249, 115, 22, 0.4); }
+        .pulse { animation: pulse 2s infinite; }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        .table-row:hover { background-color: rgba(255,255,255,0.05); }
+    </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+    <!-- Header -->
+    <header class="bg-gray-800 border-b border-gray-700 px-6 py-4">
+        <div class="flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold">Baddy's Dashboard</h1>
+                    <p class="text-gray-400 text-sm">Suspicious Hosts Monitor for Platinumlist</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <div class="text-right">
+                    <p class="text-sm text-gray-400">Last 30 days</p>
+                    <p class="text-sm font-medium" id="lastUpdate">Data loaded</p>
+                </div>
+                <div class="w-3 h-3 rounded-full bg-green-500 pulse"></div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Stats Cards -->
+    <div class="px-6 py-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Total Suspicious</p>
+                        <p class="text-3xl font-bold text-red-500" id="totalSuspicious">0</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Typosquatting</p>
+                        <p class="text-3xl font-bold text-orange-500" id="typosquatCount">0</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-orange-500/20 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Unknown Sources</p>
+                        <p class="text-3xl font-bold text-yellow-500" id="unknownCount">0</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-yellow-500/20 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gray-800 rounded-xl p-5 border border-gray-700">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Suspicious Sessions</p>
+                        <p class="text-3xl font-bold text-purple-500" id="totalSessions">0</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center">
+                        <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+                        </svg>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Threat Table -->
+            <div class="lg:col-span-2 bg-gray-800 rounded-xl border border-gray-700">
+                <div class="p-5 border-b border-gray-700">
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-lg font-semibold">Suspicious Hosts</h2>
+                        <div class="flex gap-2">
+                            <select id="threatFilter" class="bg-gray-700 border border-gray-600 rounded-lg px-3 py-1.5 text-sm">
+                                <option value="all">All Threats</option>
+                                <option value="critical">Critical</option>
+                                <option value="high">High</option>
+                                <option value="medium">Medium</option>
+                                <option value="low">Low</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-750">
+                            <tr class="text-left text-gray-400 text-sm">
+                                <th class="px-5 py-3">Threat</th>
+                                <th class="px-5 py-3">Host</th>
+                                <th class="px-5 py-3">Category</th>
+                                <th class="px-5 py-3 text-right">Views</th>
+                                <th class="px-5 py-3 text-right">Sessions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="threatTable" class="divide-y divide-gray-700">
+                            <!-- Rows will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Right Panel -->
+            <div class="space-y-6">
+                <!-- Threat Distribution -->
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                    <h2 class="text-lg font-semibold mb-4">Threat Distribution</h2>
+                    <canvas id="threatChart" height="200"></canvas>
+                </div>
+
+                <!-- Category Breakdown -->
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                    <h2 class="text-lg font-semibold mb-4">Categories</h2>
+                    <div id="categoryList" class="space-y-3">
+                        <!-- Categories will be inserted here -->
+                    </div>
+                </div>
+
+                <!-- Legend -->
+                <div class="bg-gray-800 rounded-xl border border-gray-700 p-5">
+                    <h2 class="text-lg font-semibold mb-4">Threat Levels</h2>
+                    <div class="space-y-2 text-sm">
+                        <div class="flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                            <span class="text-gray-300">Critical - Typosquatting / Phishing</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-orange-500"></span>
+                            <span class="text-gray-300">High - Suspicious external domain</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-yellow-500"></span>
+                            <span class="text-gray-300">Medium - Unknown source</span>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="w-3 h-3 rounded-full bg-green-500"></span>
+                            <span class="text-gray-300">Low - Localhost / Testing</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Suspicious hosts data from GA4
+        const suspiciousHosts = [
+            // CRITICAL - Typosquatting (misspelled platinumlist)
+            { host: "platiniumlist.com", views: 330, sessions: 229, users: 206, threat: "critical", category: "Typosquatting" },
+            { host: "dubai.platiniumlist.com", views: 12, sessions: 15, users: 14, threat: "critical", category: "Typosquatting" },
+            { host: "doha.platinumelist.net", views: 0, sessions: 1, users: 1, threat: "critical", category: "Typosquatting" },
+            { host: "laperle.piatinum.shop", views: 0, sessions: 2, users: 2, threat: "critical", category: "Typosquatting" },
+            { host: "laperle.fantasilandia.shop", views: 0, sessions: 1, users: 1, threat: "critical", category: "Typosquatting" },
+            { host: "platinumlist.forum", views: 349, sessions: 308, users: 256, threat: "critical", category: "Fake Domain" },
+            { host: "manama.platinumlist.forum", views: 131, sessions: 114, users: 105, threat: "critical", category: "Fake Domain" },
+            { host: "doha.platinumlist.forum", views: 94, sessions: 77, users: 66, threat: "critical", category: "Fake Domain" },
+            { host: "abu-dhabi.platinumlist.forum", views: 50, sessions: 39, users: 34, threat: "critical", category: "Fake Domain" },
+            { host: "dubai.platinumlist.forum", views: 19, sessions: 8, users: 5, threat: "critical", category: "Fake Domain" },
+            { host: "amsterdam.platinumlist.forum", views: 8, sessions: 1, users: 1, threat: "critical", category: "Fake Domain" },
+            { host: "istanbul.platinumlist.forum", views: 19, sessions: 2, users: 1, threat: "critical", category: "Fake Domain" },
+
+            // HIGH - Suspicious external domains
+            { host: "reviveadserver.ru", views: 4, sessions: 4, users: 4, threat: "high", category: "Ad Server (RU)" },
+            { host: "dxb.ru", views: 0, sessions: 1, users: 1, threat: "high", category: "Unknown (RU)" },
+            { host: "eyes.tiktok-row.net", views: 0, sessions: 1, users: 1, threat: "high", category: "Tracking" },
+            { host: "eqs-cockpit.com", views: 0, sessions: 1, users: 1, threat: "high", category: "Unknown" },
+            { host: "beattheheatdxb.ae", views: 0, sessions: 36, users: 36, threat: "high", category: "Redirect Abuse" },
+            { host: "www.spotlightlive.ae", views: 59, sessions: 639, users: 625, threat: "high", category: "Redirect Abuse" },
+
+            // MEDIUM - Unknown sources / testing
+            { host: "gtm-msr.appspot.com", views: 33, sessions: 51, users: 51, threat: "medium", category: "GTM Preview" },
+            { host: "project6910751.tilda.ws", views: 0, sessions: 1, users: 1, threat: "medium", category: "Tilda Website" },
+            { host: "apply.workable.com", views: 2744, sessions: 1379, users: 1189, threat: "medium", category: "Job Portal" },
+            { host: "uaeproleague-landing.pages.dev", views: 6, sessions: 8, users: 7, threat: "medium", category: "Landing Page" },
+            { host: "wta-landing.pages.dev", views: 4, sessions: 7, users: 7, threat: "medium", category: "Landing Page" },
+            { host: "gamers-landing.pages.dev", views: 0, sessions: 6, users: 6, threat: "medium", category: "Landing Page" },
+            { host: "rotana-landing.pages.dev", views: 0, sessions: 6, users: 6, threat: "medium", category: "Landing Page" },
+            { host: "khobarseason-landing.pages.dev", views: 0, sessions: 5, users: 5, threat: "medium", category: "Landing Page" },
+            { host: "4m-landing.pages.dev", views: 0, sessions: 1, users: 1, threat: "medium", category: "Landing Page" },
+            { host: "new-rotana-landing.pages.dev", views: 0, sessions: 2, users: 2, threat: "medium", category: "Landing Page" },
+            { host: "queue-platinumlist-net.translate.goog", views: 38, sessions: 33, users: 33, threat: "medium", category: "Google Translate" },
+            { host: "platinumlist-net.translate.goog", views: 4, sessions: 35, users: 30, threat: "medium", category: "Google Translate" },
+
+            // LOW - Localhost / Testing
+            { host: "127.0.0.1", views: 13, sessions: 3, users: 1, threat: "low", category: "Localhost" },
+            { host: "193.233.112.39", views: 0, sessions: 1, users: 1, threat: "low", category: "Direct IP" },
+            { host: "localhost", views: 0, sessions: 1, users: 1, threat: "low", category: "Localhost" },
+            { host: "api.platinumlist.net", views: 11, sessions: 9, users: 1, threat: "low", category: "API" },
+        ];
+
+        // Render table
+        function renderTable(filter = 'all') {
+            const tbody = document.getElementById('threatTable');
+            const filtered = filter === 'all' ? suspiciousHosts : suspiciousHosts.filter(h => h.threat === filter);
+
+            tbody.innerHTML = filtered.map(host => `
+                <tr class="table-row">
+                    <td class="px-5 py-3">
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getThreatBadgeClass(host.threat)}">
+                            ${host.threat.toUpperCase()}
+                        </span>
+                    </td>
+                    <td class="px-5 py-3">
+                        <div class="font-medium">${host.host}</div>
+                    </td>
+                    <td class="px-5 py-3 text-gray-400">${host.category}</td>
+                    <td class="px-5 py-3 text-right font-mono">${host.views.toLocaleString()}</td>
+                    <td class="px-5 py-3 text-right font-mono">${host.sessions.toLocaleString()}</td>
+                </tr>
+            `).join('');
+        }
+
+        function getThreatBadgeClass(threat) {
+            const classes = {
+                critical: 'bg-red-500/20 text-red-400',
+                high: 'bg-orange-500/20 text-orange-400',
+                medium: 'bg-yellow-500/20 text-yellow-400',
+                low: 'bg-green-500/20 text-green-400'
+            };
+            return classes[threat] || classes.medium;
+        }
+
+        // Update stats
+        function updateStats() {
+            const critical = suspiciousHosts.filter(h => h.threat === 'critical');
+            const high = suspiciousHosts.filter(h => h.threat === 'high');
+            const medium = suspiciousHosts.filter(h => h.threat === 'medium');
+
+            document.getElementById('totalSuspicious').textContent = suspiciousHosts.length;
+            document.getElementById('typosquatCount').textContent = critical.length;
+            document.getElementById('unknownCount').textContent = medium.length + high.length;
+            document.getElementById('totalSessions').textContent =
+                suspiciousHosts.reduce((sum, h) => sum + h.sessions, 0).toLocaleString();
+        }
+
+        // Render chart
+        function renderChart() {
+            const ctx = document.getElementById('threatChart').getContext('2d');
+            const counts = {
+                critical: suspiciousHosts.filter(h => h.threat === 'critical').length,
+                high: suspiciousHosts.filter(h => h.threat === 'high').length,
+                medium: suspiciousHosts.filter(h => h.threat === 'medium').length,
+                low: suspiciousHosts.filter(h => h.threat === 'low').length
+            };
+
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Critical', 'High', 'Medium', 'Low'],
+                    datasets: [{
+                        data: [counts.critical, counts.high, counts.medium, counts.low],
+                        backgroundColor: ['#ef4444', '#f97316', '#eab308', '#22c55e'],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: { color: '#9ca3af', padding: 15 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Render categories
+        function renderCategories() {
+            const categories = {};
+            suspiciousHosts.forEach(h => {
+                if (!categories[h.category]) categories[h.category] = { count: 0, sessions: 0 };
+                categories[h.category].count++;
+                categories[h.category].sessions += h.sessions;
+            });
+
+            const sorted = Object.entries(categories).sort((a, b) => b[1].sessions - a[1].sessions);
+            const list = document.getElementById('categoryList');
+
+            list.innerHTML = sorted.map(([name, data]) => `
+                <div class="flex items-center justify-between">
+                    <span class="text-gray-300">${name}</span>
+                    <div class="text-right">
+                        <span class="text-white font-medium">${data.count}</span>
+                        <span class="text-gray-500 text-sm ml-1">(${data.sessions.toLocaleString()} sessions)</span>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Filter handler
+        document.getElementById('threatFilter').addEventListener('change', (e) => {
+            renderTable(e.target.value);
+        });
+
+        // Initialize
+        renderTable();
+        updateStats();
+        renderChart();
+        renderCategories();
+        document.getElementById('lastUpdate').textContent = new Date().toLocaleDateString('en-GB', {
+            day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+        });
+    </script>
+</body>
+</html>
